@@ -1,7 +1,11 @@
 package com.example.banqueservice.controllers;
 
 import com.example.banqueservice.entities.Compte;
+import com.example.banqueservice.entities.Transaction;
+import com.example.banqueservice.entities.TransactionRequest;
+import com.example.banqueservice.entities.TypeTransaction;
 import com.example.banqueservice.repositories.CompteRepository;
+import com.example.banqueservice.repositories.TransactionRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -15,8 +19,10 @@ import java.util.Map;
 
 public class CompteControllerGraphQL {
     private CompteRepository compteRepository;
-    public CompteControllerGraphQL(CompteRepository compteRepository) {
+    private TransactionRepository transactionRepository;
+    public CompteControllerGraphQL(CompteRepository compteRepository, TransactionRepository transactionRepository) {
         this.compteRepository = compteRepository;
+        this.transactionRepository=transactionRepository;
     }
 
     @QueryMapping
@@ -46,6 +52,29 @@ public class CompteControllerGraphQL {
                 "count", count,
                 "sum", sum,
                 "average", average
+        );
+    }
+    @MutationMapping
+    public Transaction addTransaction(@Argument TransactionRequest transactionRequest) {
+        Compte compte = compteRepository.findById(transactionRequest.getCompteId())
+                .orElseThrow(() -> new RuntimeException("Compte not found"));
+        Transaction transaction = new Transaction();
+        transaction.setMontant(transactionRequest.getMontant());
+        transaction.setDate(transactionRequest.getDate());
+        transaction.setType(transactionRequest.getType());
+        transaction.setCompte(compte);
+        transactionRepository.save(transaction);
+        return transaction;
+    }
+    @QueryMapping
+    public Map<String, Object> transactionStats() {
+        long count = transactionRepository.count();
+        double sumDepots = transactionRepository.sumByType(TypeTransaction.DEPOT);
+        double sumRetraits = transactionRepository.sumByType(TypeTransaction.RETRAIT);
+        return Map.of(
+                "count", count,
+                "sumDepots", sumDepots,
+                "sumRetraits", sumRetraits
         );
     }
 }
